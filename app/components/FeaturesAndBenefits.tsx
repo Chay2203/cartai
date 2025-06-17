@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
 
 // Register ScrollTrigger plugin
 if (typeof window !== "undefined") {
@@ -81,10 +82,33 @@ export default function FeaturesAndBenefits() {
   const containerRef = useRef<HTMLDivElement>(null);
   const pairRefs = useRef<HTMLDivElement[]>([]);
 
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      // Clear any existing ScrollTriggers
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+  useGSAP(
+    () => {
+      // Clear any existing ScrollTriggers related to this component
+      ScrollTrigger.getAll().forEach((trigger) => {
+        if (
+          trigger.trigger &&
+          containerRef.current?.contains(trigger.trigger)
+        ) {
+          trigger.kill();
+        }
+      });
+
+      // Reset all elements to their initial state before animating
+      pairRefs.current.forEach((pairContainer) => {
+        if (!pairContainer) return;
+
+        const featureElement = pairContainer.querySelector(".feature-content");
+        const benefitItems = pairContainer.querySelectorAll(".benefit-item");
+
+        if (featureElement) {
+          gsap.set(featureElement, { opacity: 0, y: -30 });
+        }
+
+        benefitItems.forEach((item) => {
+          gsap.set(item, { opacity: 0, y: 60, scale: 0.9 });
+        });
+      });
 
       pairRefs.current.forEach((pairContainer, index) => {
         if (!pairContainer) return;
@@ -103,69 +127,53 @@ export default function FeaturesAndBenefits() {
         ScrollTrigger.create({
           trigger: benefitsContent,
           start: "top top",
-          end: "bottom 35%", // Now this will work! Adjust this percentage as needed
+          end: "bottom 35%",
           pin: featureElement,
           pinSpacing: false,
           pinType: "fixed",
           anticipatePin: 1,
+          invalidateOnRefresh: true, // Recalculate on window resize
         });
 
         // Animate feature entrance from top
-        gsap.fromTo(
-          featureElement,
-          {
-            opacity: 0,
-            y: -30,
+        gsap.to(featureElement, {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: pairContainer,
+            start: "top 80%",
+            end: "top 60%",
+            scrub: 1,
+            invalidateOnRefresh: true,
           },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.8,
-            ease: "power2.out",
-            scrollTrigger: {
-              trigger: pairContainer,
-              start: "top 80%",
-              end: "top 60%",
-              scrub: 1,
-            },
-          }
-        );
+        });
 
         // Animate benefits appearing progressively
         benefitItems.forEach((item, itemIndex) => {
-          gsap.fromTo(
-            item,
-            {
-              opacity: 0,
-              y: 60,
-              scale: 0.9,
+          gsap.to(item, {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.6,
+            ease: "power2.out",
+            scrollTrigger: {
+              trigger: item,
+              start: "top 85%",
+              end: "top 60%",
+              scrub: 1,
+              invalidateOnRefresh: true,
             },
-            {
-              opacity: 1,
-              y: 0,
-              scale: 1,
-              duration: 0.6,
-              ease: "power2.out",
-              scrollTrigger: {
-                trigger: item,
-                start: "top 85%",
-                end: "top 60%",
-                scrub: 1,
-              },
-            }
-          );
+          });
         });
       });
 
       // Refresh ScrollTrigger after setup
       ScrollTrigger.refresh();
-    }, containerRef);
-
-    return () => {
-      ctx.revert();
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
-    };
-  }, []);
+    },
+    { scope: containerRef, dependencies: [] }
+  ); // scope ensures animations only affect this component
 
   const addToPairRefs = (el: HTMLDivElement | null, index: number) => {
     if (el && !pairRefs.current.includes(el)) {
